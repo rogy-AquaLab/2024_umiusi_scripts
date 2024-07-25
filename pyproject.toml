@@ -5,7 +5,9 @@ description = "umiusi便利スクリプトたち"
 authors = [
     { name = "H1rono", email = "hronok66@gmail.com" }
 ]
-dependencies = []
+dependencies = [
+    "pyserial-asyncio>=0.6",
+]
 readme = "README.md"
 requires-python = ">= 3.10"
 
