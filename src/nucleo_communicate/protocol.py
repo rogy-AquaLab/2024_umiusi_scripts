@@ -7,7 +7,7 @@ import serial_asyncio # type:ignore
 _logger = logging.getLogger(__name__)
 
 
-class Protocol(asyncio.Protocol):
+class LogProtocol(asyncio.Protocol):
     def __init__(self) -> None:
         super().__init__()
         self.transport: serial_asyncio.SerialTransport | None = None
