@@ -19,6 +19,7 @@ requires-python = ">= 3.10"
 
 [project.scripts]
 nucleo-read-forever = "nucleo_communicate.scripts:run_read_forever"
+nucleo-plot-flex1 = "nucleo_communicate.scripts:flex1_animation"
 
 [build-system]
 requires = ["setuptools>=61.0"]
