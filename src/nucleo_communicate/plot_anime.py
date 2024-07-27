@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections import deque
+from concurrent import futures
 from typing import Any
 
 import aiochannel
@@ -16,14 +17,12 @@ class SensorValueAnimationHandle:
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
-        rx: aiochannel.Channel[int],
+        rx: aiochannel.Channel[float],
         ax: Axes,
-        value_scale: float = 1 / (1 << 16)
     ) -> None:
         self._loop = loop
         self._rx = rx
         self._ax = ax
-        self._value_scale = value_scale
         self._index = 0
         self._xdata = deque[float]()
         self._ydata = deque[float]()
@@ -33,7 +32,7 @@ class SensorValueAnimationHandle:
         self._logger = _logger.getChild(self.__class__.__name__)
 
     def init(self) -> tuple[Axes]:
-        self._ax.set_xlim(0.0, 50.0)
+        self._ax.set_xlim(0.0, 100.0)
         self._ax.set_ylim(0.0, 1.0)
         return (self._ax,)
 
@@ -42,7 +41,7 @@ class SensorValueAnimationHandle:
             try:
                 frame_future = asyncio.run_coroutine_threadsafe(self._rx.get(), self._loop)
                 yield frame_future.result(0.01)
-            except asyncio.TimeoutError:
+            except futures.TimeoutError:
                 yield None
             finally:
                 self._logger.debug("yielded frame")
@@ -51,7 +50,7 @@ class SensorValueAnimationHandle:
         if frame is None:
             return (self._ax,)
         self._xdata.append(self._index)
-        self._ydata.append(frame * self._value_scale)
+        self._ydata.append(frame)
         if self._index > 100:
             xleft = self._xdata.popleft()
             self._ydata.popleft()
