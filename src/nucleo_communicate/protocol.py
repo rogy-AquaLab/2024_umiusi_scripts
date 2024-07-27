@@ -1,7 +1,9 @@
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass
 
+import aiochannel
 import serial_asyncio # type:ignore
 
 
@@ -88,6 +90,25 @@ class RecvProtocol(asyncio.Protocol):
 
     def get_buffer(self) -> RecvBuffer:
         return RecvBuffer(self._buffer.flex1, self._buffer.flex2, self._buffer.current, self._buffer.voltage)
+
+
+class RecvChanProtocol(RecvProtocol):
+    def __init__(self, loop: asyncio.AbstractEventLoop, tx: aiochannel.Channel[RecvBuffer]) -> None:
+        super().__init__()
+        self._loop = loop
+        self._tx = tx
+
+    def _send_buffer(self, buffer: RecvBuffer) -> None:
+        with contextlib.suppress(asyncio.TimeoutError):
+            put_coro = asyncio.wait_for(self._tx.put(buffer), 0.1)
+            asyncio.run_coroutine_threadsafe(put_coro, self._loop)
+
+    def data_received(self, data: bytes) -> None:
+        ret = super().data_received(data)
+        if self._filled_buffer():
+            buf = self.get_buffer()
+            self._send_buffer(buf)
+        return ret
 
 
 class LogProtocol(asyncio.Protocol):
