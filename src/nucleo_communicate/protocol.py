@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from dataclasses import dataclass
 
 import serial_asyncio # type:ignore
 
@@ -7,81 +8,18 @@ import serial_asyncio # type:ignore
 _logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=False)
 class RecvBuffer:
-    def __init__(self) -> None:
-        self._progress: int = 0
-        self._flex1: int | None = None
-        self._flex2: int | None = None
-        self._current: int | None = None
-        self._voltage: int | None = None
-
-    def __str__(self) -> str:
-        clsname = self.__class__.__name__
-        flex1 = self._flex1
-        flex2 = self._flex2
-        current = self._current
-        voltage = self._voltage
-        return f"{clsname}({flex1=}, {flex2=}, {current=}, {voltage=})"
-
-    @property
-    def flex1(self) -> int:
-        return self._flex1 if self._flex1 is not None else -1
-
-    @property
-    def flex2(self) -> int:
-        return self._flex2 if self._flex2 is not None else -1
-
-    @property
-    def current(self) -> int:
-        return self._current if self._current is not None else -1
-
-    @property
-    def voltage(self) -> int:
-        return self._voltage if self._voltage is not None else -1
+    flex1: int | None = None
+    flex2: int | None = None
+    current: int | None = None
+    voltage: int | None = None
 
     def clear(self) -> None:
-        self._progress = 0
-        self._flex1 = None
-        self._flex2 = None
-        self._current = None
-        self._voltage = None
-
-    def append(self, value: int) -> None:
-        match self._progress:
-            case 0:
-                self._flex1 = self._flex1 or 0
-                self._flex1 |= (value & 0xFF) << 0
-            case 1:
-                self._flex1 = self._flex1 or 0
-                self._flex1 |= (value & 0xFF) << 8
-            case 2:
-                self._flex2 = self._flex2 or 0
-                self._flex2 |= (value & 0xFF) << 0
-            case 3:
-                self._flex2 = self._flex2 or 0
-                self._flex2 |= (value & 0xFF) << 8
-            case 4:
-                self._current = self._current or 0
-                self._current |= (value & 0xFF) << 0
-            case 5:
-                self._current = self._current or 0
-                self._current |= (value & 0xFF) << 8
-            case 6:
-                self._voltage = self._voltage or 0
-                self._voltage |= (value & 0xFF) << 0
-            case 7:
-                self._voltage = self._voltage or 0
-                self._voltage |= (value & 0xFF) << 8
-            case _:
-                return
-        self._progress += 1
-
-    def extend(self, value: bytes) -> None:
-        for v in value:
-            self.append(v)
-
-    def filled(self) -> bool:
-        return self._progress > 7
+        self.flex1 = None
+        self.flex2 = None
+        self.current = None
+        self.voltage = None
 
 
 class RecvProtocol(asyncio.Protocol):
@@ -90,6 +28,7 @@ class RecvProtocol(asyncio.Protocol):
         self._transport: serial_asyncio.SerialTransport | None = None
         self._logger = _logger.getChild(self.__class__.__name__)
         self._buffer = RecvBuffer()
+        self._buffer_progress = 0
 
     def connection_made(self, transport: serial_asyncio.SerialTransport) -> None:
         self._transport = transport
@@ -105,12 +44,50 @@ class RecvProtocol(asyncio.Protocol):
         assert self._transport is not None
         self._transport.write(bytes([0x01]))
         self._buffer.clear()
+        self._buffer_progress = 0
+
+    def _append_data(self, value: int) -> None:
+        match self._buffer_progress:
+            case 0:
+                self._buffer.flex1 = self._buffer.flex1 or 0
+                self._buffer.flex1 |= (value & 0xFF) << 0
+            case 1:
+                assert self._buffer.flex1 is not None
+                self._buffer.flex1 |= (value & 0xFF) << 8
+            case 2:
+                self._buffer.flex2 = self._buffer.flex2 or 0
+                self._buffer.flex2 |= (value & 0xFF) << 0
+            case 3:
+                assert self._buffer.flex2 is not None
+                self._buffer.flex2 |= (value & 0xFF) << 8
+            case 4:
+                self._buffer.current = self._buffer.current or 0
+                self._buffer.current |= (value & 0xFF) << 0
+            case 5:
+                assert self._buffer.current is not None
+                self._buffer.current |= (value & 0xFF) << 8
+            case 6:
+                self._buffer.voltage = self._buffer.voltage or 0
+                self._buffer.voltage |= (value & 0xFF) << 0
+            case 7:
+                assert self._buffer.voltage is not None
+                self._buffer.voltage |= (value & 0xFF) << 8
+            case _:
+                return
+        self._buffer_progress += 1
+
+    def _filled_buffer(self):
+        return self._buffer_progress > 7
 
     def data_received(self, data: bytes) -> None:
-        self._buffer.extend(data)
-        if self._buffer.filled():
+        for v in data:
+            self._append_data(v)
+        if self._filled_buffer():
             self._logger.info(f"image filled: {self._buffer}")
         return super().data_received(data)
+
+    def get_buffer(self) -> RecvBuffer:
+        return RecvBuffer(self._buffer.flex1, self._buffer.flex2, self._buffer.current, self._buffer.voltage)
 
 
 class LogProtocol(asyncio.Protocol):
