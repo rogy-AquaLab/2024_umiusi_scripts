@@ -31,15 +31,21 @@ class RecvProtocol(asyncio.Protocol):
         self._logger = _logger.getChild(self.__class__.__name__)
         self._buffer = RecvBuffer()
         self._buffer_progress = 0
+        self._connected = asyncio.Event()
+
+    async def wait_connected(self) -> None:
+        await self._connected.wait()
 
     def connection_made(self, transport: serial_asyncio.SerialTransport) -> None:
         self._transport = transport
         self._logger.debug("connection made")
+        self._connected.set()
         return super().connection_made(transport)
 
     def connection_lost(self, exc: Exception | None) -> None:
         self._transport = None
         self._logger.debug(f"connection lost: {exc=}")
+        self._connected.clear()
         return super().connection_lost(exc)
 
     def request_data(self) -> None:

@@ -13,10 +13,11 @@ _logger = logging.getLogger(__name__)
 async def read_forever(loop: asyncio.AbstractEventLoop):
     _transport, protocol = await serial_asyncio.create_serial_connection(loop, RecvProtocol, "/dev/ttyACM0")
     assert isinstance(protocol, RecvProtocol)
+    await protocol.wait_connected()
     while True:
-        await asyncio.sleep(0.5)
         _logger.info("tick")
         protocol.request_data()
+        await asyncio.sleep(0.5)
 
 
 def run_read_forever():
