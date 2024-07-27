@@ -48,3 +48,5 @@ six==1.16.0
     # via python-dateutil
 typing-extensions==4.12.2
     # via 2024-umiusi-scripts
+setuptools==71.1.0
+    # via 2024-umiusi-scripts

@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=2.0.1",
     "aiochannel>=1.2.1",
     "typing-extensions>=4.12.2",
+    "setuptools>=71.1.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
