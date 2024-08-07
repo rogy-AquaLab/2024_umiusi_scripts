@@ -44,9 +44,9 @@ pyserial-asyncio==0.6
     # via 2024-umiusi-scripts
 python-dateutil==2.9.0.post0
     # via matplotlib
+setuptools==71.1.0
+    # via 2024-umiusi-scripts
 six==1.16.0
     # via python-dateutil
 typing-extensions==4.12.2
-    # via 2024-umiusi-scripts
-setuptools==71.1.0
     # via 2024-umiusi-scripts
